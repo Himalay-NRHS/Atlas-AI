@@ -12,3 +12,12 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  password    String
+  email       String   @unique
+  createdAt   DateTime @default(now())
+  onlineDates Json?    // Stores an array of online dates (e.g., for a contribution graph)
+  amount      Float?   // Nullable field for storing an amount value
+}
