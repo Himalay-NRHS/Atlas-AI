@@ -54,10 +54,14 @@ export default function Navbar() {
             <NavLink href="#features">Features</NavLink>
        
             <div className="flex items-center space-x-4">
-              <Button variant="outline" className="rounded-full px-6">
-                Sign In
-              </Button>
-              <Button className="rounded-full px-6">Sign Up</Button>
+              <Link href="/api/auth/signin">
+                <Button variant="outline" className="rounded-full px-6">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/api/auth/signup">
+                <Button className="rounded-full px-6">Sign Up</Button>
+              </Link>
             </div>
           </nav>
 
@@ -87,12 +91,18 @@ export default function Navbar() {
             <MobileNavLink href="#features" onClick={() => setIsMobileMenuOpen(false)}>
               Features
             </MobileNavLink>
-           
+            
             <div className="pt-4 flex flex-col space-y-3">
-              <Button variant="outline" className="w-full rounded-full">
-                Sign In
-              </Button>
-              <Button className="w-full rounded-full">Sign Up</Button>
+              <Link href="/api/auth/signin" className="w-full">
+                <Button variant="outline" className="w-full rounded-full">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/api/auth/signup" className="w-full">
+                <Button className="w-full rounded-full">
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           </div>
         </motion.div>
@@ -130,4 +140,3 @@ function MobileNavLink({
     </Link>
   )
 }
-

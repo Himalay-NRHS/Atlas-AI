@@ -45,9 +45,9 @@ console.log(result)
     }
   }
 
-  const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl: "/dashboard" })
-  }
+//   const handleGoogleSignIn = () => {
+//     signIn("google", { callbackUrl: "/dashboard" })
+//   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white p-4">
@@ -108,7 +108,7 @@ console.log(result)
         <Button
           type="button"
           variant="outline"
-          onClick={handleGoogleSignIn}
+          
           className="w-full border-gray-300 hover:bg-gray-50"
         >
           <svg

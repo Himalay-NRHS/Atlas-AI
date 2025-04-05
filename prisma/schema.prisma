@@ -18,6 +18,8 @@ model User {
   password    String
   email       String   @unique
   createdAt   DateTime @default(now())
+  weaktopics  String[]
+  result      Json?
   onlineDates Json?    // Stores an array of online dates (e.g., for a contribution graph)
   amount      Float?   // Nullable field for storing an amount value
 }
