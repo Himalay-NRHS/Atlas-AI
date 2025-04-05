@@ -16,55 +16,22 @@ import { Badge } from "@/components/ui/badge"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 
-// Dummy data
-const dummyPerformanceData = [
-  { quizNumber: 1, marks: 65 },
-  { quizNumber: 2, marks: 78 },
-  { quizNumber: 3, marks: 82 },
-  { quizNumber: 4, marks: 75 },
-  { quizNumber: 5, marks: 0 },
-  { quizNumber: 6, marks: 85 },
-  { quizNumber: 7, marks: 92 },
-  { quizNumber: 8, marks: 88 },
-  { quizNumber: 9, marks: 95 },
-  { quizNumber: 10, marks: 0 },
-  { quizNumber: 11, marks: 100 },
-]
-
-const dummyWeakTopics = [
-  "Quadratic Equations",
-  "Organic Chemistry Reactions",
-  "Electromagnetic Induction",
-  "Cellular Respiration",
-  "World War II Causes",
-  "Shakespearean Literature",
-]
-
 const motivationalQuotes = [
   "The only way to learn mathematics is to do mathematics. — Paul Halmos",
   "Education is the passport to the future... — Malcolm X",
   "The beautiful thing about learning is that no one can take it away from you. — B.B. King",
-  // Add more as needed
 ]
-
-// Optional: Convert API object data to chart format
-// const normalizePerformanceData = (raw: Record<string, string>) => {
-//   return Object.entries(raw).map(([key, value]) => ({
-//     quizNumber: Number(key),
-//     marks: Number(value),
-//   }))
-// }
 
 interface DashboardData {
   user: {
-    name: string;
-  };
+    name: string
+  }
   performanceData: {
-    quizNumber: number;
-    marks: number;
-  }[];
-  weakTopics: string[];
-  onlineDates: any[];
+    quizNumber: number
+    marks: number
+  }[]
+  weakTopics: string[]
+  onlineDates: any[]
 }
 
 export default function Dashboard() {
@@ -74,29 +41,68 @@ export default function Dashboard() {
 
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     user: { name: "" },
-    performanceData: dummyPerformanceData,
-    weakTopics: dummyWeakTopics,
+    performanceData: [],
+    weakTopics: [],
     onlineDates: [],
   })
 
   const [loading, setLoading] = useState(true)
 
-  // Keep using dummy data for now
-  useEffect(() => {
-    if (status === "authenticated" || status === "unauthenticated") {
+  const fetchDashboardData = async () => {
+    try {
+      const res = await fetch("/api/dashboard", {
+        method: "POST",
+        body: JSON.stringify({ email: session?.user?.email }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!res.ok) throw new Error("Failed to fetch")
+
+      const data = await res.json()
+
+      // Build performanceData from result if needed
+      let performanceArray = []
+      if (Array.isArray(data.performanceData) && data.performanceData.length > 0) {
+        performanceArray = data.performanceData
+      } else if (data.result && typeof data.result === "object") {
+        performanceArray = Object.entries(data.result).map(([quizNumber, marks]) => ({
+          quizNumber: Number(quizNumber),
+          marks: Number(marks),
+        }))
+      }
+
+      setDashboardData({
+        user: {
+          name: data.user?.name || "User",
+        },
+        performanceData: performanceArray,
+        weakTopics: Array.isArray(data.weakTopics) ? data.weakTopics : [],
+        onlineDates: data.onlineDates || [],
+      })
+
+    } catch (error) {
+      console.error("Error loading dashboard:", error)
+      setDashboardData({
+        user: { name: "User" },
+        performanceData: [],
+        weakTopics: [],
+        onlineDates: [],
+      })
+    } finally {
       setLoading(false)
     }
+  }
 
-    // Example logic if using API later
-    // if (status === "authenticated") {
-    //   fetchDashboardData()
-    // } else if (status === "unauthenticated") {
-    //   setLoading(false)
-    // }
-
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchDashboardData()
+    } else if (status === "unauthenticated") {
+      setLoading(false)
+    }
   }, [status])
 
-  // Random motivational quote
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * motivationalQuotes.length)
     setRandomQuote(motivationalQuotes[randomIndex])
@@ -129,7 +135,8 @@ export default function Dashboard() {
               <Button variant="ghost" className="flex items-center gap-2">
                 <Video className="h-4 w-4" /> AI Mock Interview
               </Button>
-              <Button variant="ghost" className="flex items-center gap-2">
+              <Button variant="ghost" className="flex items-center gap-2"
+                onClick={() => { router.push("/studytools") }}>
                 <BookOpen className="h-4 w-4" /> Study Tools
               </Button>
               <Button variant="destructive" onClick={handleLogout} className="flex items-center gap-2">
@@ -160,8 +167,8 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="quizNumber" label={{ value: "Quiz Number", position: "insideBottomRight", offset: -10 }} />
-                    <YAxis domain={[0, 100]} label={{ value: "Marks", angle: -90, position: "insideLeft", style: { textAnchor: "middle" } }} />
+                    <XAxis dataKey="quizNumber" />
+                    <YAxis domain={[0, 100]} />
                     <Tooltip formatter={(value) => [`${value} marks`, "Score"]} labelFormatter={(label) => `Quiz ${label}`} />
                     <Area type="monotone" dataKey="marks" stroke="#4ade80" fillOpacity={1} fill="url(#colorMarks)" activeDot={{ r: 8 }} />
                   </AreaChart>

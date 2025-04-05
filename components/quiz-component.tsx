@@ -1,14 +1,13 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Card } from "@/components/ui/card"
 import { CheckCircle, XCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 // Define types for our quiz data
 type QuizData = {
@@ -19,18 +18,16 @@ type QuizData = {
   answers: number[]
 }
 
-// Define props for the component
-interface QuizComponentProps {
-  quizApiEndpoint?: string // API endpoint to fetch quiz data
-  resultApiEndpoint?: string // API endpoint to submit results
-  onComplete?: (results: any) => void // Optional callback when quiz completes
-}
+export default function QuizComponent() {
+  // Hardcoded endpoints
+  const quizApiEndpoint = "/api/quiz"
+  const resultApiEndpoint = "/api/result"
 
-export default function QuizComponent({
-  quizApiEndpoint = "/api/quiz",
-  resultApiEndpoint = "/api/result",
-  onComplete,
-}: QuizComponentProps) {
+  // Get user's email from session
+  const { data: session } = useSession()
+  const email = session?.user?.email || ""
+  console.log("User email:", email)
+
   // View states: "topic", "quiz", "result"
   const [view, setView] = useState<"topic" | "quiz" | "result">("topic")
 
@@ -42,58 +39,41 @@ export default function QuizComponent({
   const [quizData, setQuizData] = useState<QuizData | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
-  const [incorrectAnswers, setIncorrectAnswers] = useState<number[]>([])
+  // Track the text of incorrect questions
+  const [incorrectQuestions, setIncorrectQuestions] = useState<string[]>([])
   const [direction, setDirection] = useState(1) // 1 for forward, -1 for backward
 
   // Result state
-  const [resultMessage, setResultMessage] = useState<string>("")
+  const [suggestion, setSuggestion] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch quiz data from backend
   const fetchQuizData = async (topicValue: string) => {
     setIsLoading(true)
     try {
-      // In a real implementation, fetch from your API
-      // const response = await fetch(`${quizApiEndpoint}?topic=${encodeURIComponent(topicValue)}`);
-      // const data = await response.json();
-      // setQuizData(data);
+      const response = await fetch(quizApiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ topic: topicValue }),
+      })
 
-      // For now, use dummy data
-      setTimeout(() => {
-        setQuizData({
-          questions: [
-            "What is the capital of France?",
-            "Which planet is known as the Red Planet?",
-            "What is the largest mammal?",
-            "Who wrote 'Hamlet'?",
-            "What is the boiling point of water at sea level in Celsius?",
-            "Which element has the chemical symbol 'O'?",
-            "In which year did World War II end?",
-            "What is the square root of 64?",
-            "Which ocean is the largest?",
-            "What is the fastest land animal?",
-          ],
-          options: {
-            choices: [
-              ["Paris", "Rome", "Madrid", "Berlin"],
-              ["Earth", "Mars", "Jupiter", "Venus"],
-              ["Elephant", "Blue Whale", "Giraffe", "Orca"],
-              ["Shakespeare", "Dickens", "Austen", "Twain"],
-              ["90", "100", "110", "120"],
-              ["Oxygen", "Gold", "Osmium", "Ozone"],
-              ["1945", "1939", "1918", "1963"],
-              ["6", "7", "8", "9"],
-              ["Atlantic", "Pacific", "Indian", "Arctic"],
-              ["Cheetah", "Lion", "Tiger", "Leopard"],
-            ],
-          },
-          answers: [0, 1, 1, 0, 1, 0, 0, 2, 1, 0],
-        })
+      const data = await response.json()
+
+      if (data.error) {
+        console.error("Backend error:", data.error)
         setIsLoading(false)
-        setView("quiz")
-      }, 800)
+        return
+      }
+
+      // Data is expected to be in the required structure:
+      // { questions: string[], options: { choices: string[][] }, answers: number[] }
+      setQuizData(data)
+      setView("quiz")
     } catch (error) {
       console.error("Error fetching quiz data:", error)
+    } finally {
       setIsLoading(false)
     }
   }
@@ -104,45 +84,38 @@ export default function QuizComponent({
 
     setIsSubmitting(true)
     try {
-      // In a real implementation, submit to your API
-      // const response = await fetch(resultApiEndpoint, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     topic,
-      //     incorrectAnswers,
-      //     totalQuestions: quizData.questions.length,
-      //   }),
-      // });
-      // const data = await response.json();
-      // setResultMessage(data.message);
+      const response = await fetch(resultApiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic,
+          incorrectQuestions,
+         
+          email,
+         // Send the number of incorrect questions
+        }),
+      })
 
-      // For now, use dummy response
-      setTimeout(() => {
-        const correctCount = quizData.questions.length - incorrectAnswers.length
-        const score = Math.round((correctCount / quizData.questions.length) * 100)
+      if (!response.ok) {
+        throw new Error(`Network response not ok: ${response.statusText}`)
+      }
 
-        // This would normally come from your backend
-        setResultMessage("Great job on completing the quiz! Your performance shows a good understanding of the topic.")
-
-        setIsSubmitting(false)
-        setView("result")
-
-        // Call onComplete callback if provided
-        if (onComplete) {
-          onComplete({
-            topic,
-            score,
-            correctCount,
-            incorrectAnswers,
-            totalQuestions: quizData.questions.length,
-          })
-        }
-      }, 1000)
+      const contentType = response.headers.get("content-type")
+      let data
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json()
+      } else {
+        console.error("Expected JSON response but got:", contentType)
+        data = { suggestion: "Quiz completed successfully!" }
+      }
+      setSuggestion(data.suggestion || "Quiz completed successfully!")
+      setView("result")
     } catch (error) {
       console.error("Error submitting quiz results:", error)
+      setSuggestion("An error occurred while submitting your quiz results.")
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -150,10 +123,12 @@ export default function QuizComponent({
   // Handle topic form submission
   const handleTopicSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    fetchQuizData(topic)
+    if (topic.trim()) {
+      fetchQuizData(topic)
+    }
   }
 
-  // Handle option selection
+  // Handle option selection and record incorrect questions
   const handleOptionSelect = (optionIndex: number) => {
     setSelectedOption(optionIndex)
   }
@@ -162,9 +137,12 @@ export default function QuizComponent({
   const handleNextQuestion = () => {
     if (!quizData) return
 
-    // Check if answer is incorrect
+    // If the selected option is not the correct answer, record the question text
     if (selectedOption !== quizData.answers[currentQuestion]) {
-      setIncorrectAnswers([...incorrectAnswers, currentQuestion])
+      setIncorrectQuestions((prev) => [
+        ...prev,
+        quizData.questions[currentQuestion],
+      ])
     }
 
     setDirection(1)
@@ -173,7 +151,7 @@ export default function QuizComponent({
     if (currentQuestion < quizData.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1)
     } else {
-      // Quiz completed
+      // Quiz completed, submit results
       submitQuizResults()
     }
   }
@@ -184,32 +162,13 @@ export default function QuizComponent({
     setQuizData(null)
     setCurrentQuestion(0)
     setSelectedOption(null)
-    setIncorrectAnswers([])
-    setResultMessage("")
+    setIncorrectQuestions([])
+    setSuggestion("")
     setView("topic")
   }
 
   // Calculate progress percentage
   const progress = quizData ? ((currentQuestion + 1) / quizData.questions.length) * 100 : 0
-
-  // Calculate score for results
-  const calculateScore = () => {
-    if (!quizData) return { score: 0, correctCount: 0, totalQuestions: 0 }
-
-    const totalQuestions = quizData.questions.length
-    const correctCount = totalQuestions - incorrectAnswers.length
-    const score = Math.round((correctCount / totalQuestions) * 100)
-
-    return { score, correctCount, totalQuestions }
-  }
-
-  // Get feedback based on score
-  const getFeedback = (score: number) => {
-    if (score >= 90) return "Excellent! You're a master of this topic!"
-    if (score >= 70) return "Great job! You have a solid understanding!"
-    if (score >= 50) return "Good effort! Keep learning and you'll improve!"
-    return "Keep practicing! You'll get better with time."
-  }
 
   return (
     <div className="w-full max-w-2xl mx-auto bg-white p-4 mt-8">
@@ -294,7 +253,9 @@ export default function QuizComponent({
             className="w-full space-y-6 mt-6"
           >
             <div className="text-center">
-              <h2 className="text-2xl font-bold tracking-tight text-black">Quiz on {topic}</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-black">
+                Quiz on {topic}
+              </h2>
               <p className="mt-2 text-gray-600">
                 Question {currentQuestion + 1} of {quizData.questions.length}
               </p>
@@ -312,7 +273,9 @@ export default function QuizComponent({
                 className="w-full"
               >
                 <Card className="p-6 shadow-lg border-gray-200">
-                  <h3 className="text-xl font-medium mb-6 text-black">{quizData.questions[currentQuestion]}</h3>
+                  <h3 className="text-xl font-medium mb-6 text-black">
+                    {quizData.questions[currentQuestion]}
+                  </h3>
 
                   <div className="space-y-3">
                     {quizData.options.choices[currentQuestion].map((option, index) => (
@@ -385,68 +348,23 @@ export default function QuizComponent({
             >
               <Card className="p-8 shadow-lg border-gray-200">
                 <div className="flex flex-col items-center justify-center space-y-6">
-                  {/* Score Circle */}
-                  {quizData && (
-                    <div className="relative w-40 h-40">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-4xl font-bold">{calculateScore().score}%</span>
-                      </div>
-                      <svg className="w-full h-full" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="8" />
-                        <motion.circle
-                          cx="50"
-                          cy="50"
-                          r="45"
-                          fill="none"
-                          stroke="black"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          strokeDasharray={`${calculateScore().score * 2.83} ${283 - calculateScore().score * 2.83}`}
-                          strokeDashoffset="70.75"
-                          initial={{ strokeDasharray: "0 283" }}
-                          animate={{
-                            strokeDasharray: `${calculateScore().score * 2.83} ${283 - calculateScore().score * 2.83}`,
-                          }}
-                          transition={{ duration: 1.5, delay: 0.5 }}
-                        />
-                      </svg>
-                    </div>
-                  )}
-
-                  {/* Feedback */}
-                  <div className="space-y-2 text-center">
-                    <h3 className="text-2xl font-semibold">{quizData && getFeedback(calculateScore().score)}</h3>
-                    <p className="text-gray-600">
-                      {quizData &&
-                        `You answered ${calculateScore().correctCount} out of ${calculateScore().totalQuestions} questions correctly.`}
-                    </p>
-
-                    {/* Backend Message */}
-                    {resultMessage && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.5 }}
-                        className="mt-4 p-4 bg-gray-50 rounded-md text-gray-800"
-                      >
-                        {resultMessage}
-                      </motion.div>
-                    )}
+                  {/* Display suggestion from backend */}
+                  <div className="text-center">
+                    <h3 className="text-2xl font-semibold">Suggestions for Improvement</h3>
+                    <p className="text-gray-600 mt-2">{suggestion}</p>
                   </div>
 
-                  {/* Score Breakdown */}
-                  {quizData && (
-                    <div className="flex justify-between w-full">
-                      <div className="flex items-center">
-                        <CheckCircle className="h-5 w-5 text-black mr-2" />
-                        <span>Correct: {calculateScore().correctCount}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <XCircle className="h-5 w-5 text-gray-500 mr-2" />
-                        <span>Incorrect: {incorrectAnswers.length}</span>
-                      </div>
+                  {/* Score Breakdown (optional placeholder) */}
+                  <div className="flex justify-between w-full">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-5 w-5 text-black mr-2" />
+                      <span>Correct: {quizData?.questions.length! - incorrectQuestions.length || 0}</span>
                     </div>
-                  )}
+                    <div className="flex items-center">
+                      <XCircle className="h-5 w-5 text-gray-500 mr-2" />
+                      <span>Incorrect: {incorrectQuestions.length}</span>
+                    </div>
+                  </div>
                 </div>
               </Card>
             </motion.div>
@@ -468,4 +386,3 @@ export default function QuizComponent({
     </div>
   )
 }
-

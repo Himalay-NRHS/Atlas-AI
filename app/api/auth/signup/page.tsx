@@ -17,6 +17,7 @@ export default function SignUpPage() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [stdclass, setStdclass] = useState("") // <-- New stdclass field
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -24,20 +25,19 @@ export default function SignUpPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
-const name = username
+
     try {
       const res = await axios.post("/api/signup", {
-        name,
+        name: username,
         email,
         password,
+        stdclass, // <-- Send stdclass to backend
       })
-console.log(res)
-    
-      
 
-        setIsLoading(false)
-        router.push("/api/auth/signin")
+      console.log(res)
 
+      setIsLoading(false)
+      router.push("/api/auth/signin")
     } catch (error) {
       setError(error instanceof Error ? error.message : "Something went wrong")
       setIsLoading(false)
@@ -80,6 +80,18 @@ console.log(res)
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
+              required
+              className="border-gray-300 focus:border-black focus:ring-black"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="stdclass">Class</Label>
+            <Input
+              id="stdclass"
+              value={stdclass}
+              onChange={(e) => setStdclass(e.target.value)}
+              placeholder="e.g. 10th Grade or BCA 2nd Year"
               required
               className="border-gray-300 focus:border-black focus:ring-black"
             />
