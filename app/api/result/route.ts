@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     // Construct the prompt for Gemini
     const prompt = `
-You are an professional educational teacher . A student took a quiz on "${topic}" and answered some questions incorrectly.
+You are an professional educational teacher. A student took a quiz on "${topic}" and answered some questions incorrectly.
 Here are the questions that were answered incorrectly:
 ${incorrectQuestions}
 
@@ -33,19 +33,41 @@ Respond strictly in JSON format as:
       model: "gemini-2.0-flash",
       contents: prompt,
     });
-console.log("Gemini Response:", geminiResponse);
+    console.log("Gemini Response:", geminiResponse);
+
     if (!geminiResponse || !geminiResponse.text) {
-      return NextResponse.json({ error: "Failed to get a valid response from Gemini API" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to get a valid response from Gemini API" },
+        { status: 500 }
+      );
     }
 
-    // Do not parse the response; just return it as is
-    const responseText = geminiResponse.text.trim();
+    // Retrieve the raw response text and remove any markdown formatting if present
+    let responseText = geminiResponse.text.trim();
+    if (responseText.startsWith("```")) {
+      responseText = responseText.replace(/^```(?:json)?/, "").replace(/```$/, "").trim();
+    }
+
+    // Parse the response text into JSON
+    let resultData;
+    try {
+      resultData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response:", parseError);
+      return NextResponse.json(
+        { error: "Failed to parse Gemini API response" },
+        { status: 500 }
+      );
+    }
+
+    // Pretty-print the JSON with indentation
+    const formattedResponse = JSON.stringify(resultData, null, 2);
 
     // Optionally, update the user record in the DB if you have logic to extract topics
-    // For now, since we're not parsing the response, we will skip updating weak topics
+    // For now, we're only returning the formatted response
 
-    // Return the raw Gemini response to the frontend
-    return NextResponse.json({ suggestion: responseText });
+    // Return the formatted Gemini response to the frontend
+    return NextResponse.json({ suggestion: formattedResponse });
   } catch (error) {
     console.error("Error in result route:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
