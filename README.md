@@ -69,6 +69,4 @@ Atlas AI is an intelligent platform bridging students and colleges by offering p
 
 ---
 
-<div align="center">
-  Made with ❤️ by Team Bit‑Flippers
-</div>
+
